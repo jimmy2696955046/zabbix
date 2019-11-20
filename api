@@ -1,0 +1,103 @@
+#!/bin/bash
+
+zabbix_host="172.30.0.44"
+function get_token(){
+curl -s -X POST -H 'Content-Type:application/json' -d '
+{
+"jsonrpc": "2.0",
+"method": "user.login",
+"params": {
+"user": "Admin",
+"password": "zabbix"
+},
+"id": 1,
+"auth": null
+}' http://${zabbix_host}/zabbix/api_jsonrpc.php
+}
+token=$(get_token |awk -F\" '{print $8}')
+#echo $token
+#exit
+#
+
+function host_get(){
+curl -s -X POST -H 'Content-Type:application/json' -d '
+{
+    "jsonrpc": "2.0",
+    "method": "host.get",
+    "params": {
+    "output": [ "hostid","host","name"],
+    },
+    "auth": "'${token}'",
+    "id": 1
+}' http://${zabbix_host}/zabbix/api_jsonrpc.php
+}
+#host_get
+
+function user_get(){
+curl -s -X POST -H 'Content-Type:application/json' -d '
+{
+    "jsonrpc": "2.0",
+    "method": "user.get",
+    "params": {
+    "filter": { "userid": "4" },
+    "output": "extend",
+    "selectUsrgrps": "extend",
+    "selectMedias": "extend"
+    },
+    "auth": "'${token}'",
+    "id": 1
+}' http://${zabbix_host}/zabbix/api_jsonrpc.php
+}
+user_get
+
+
+function user_create(){
+curl -s -X POST -H 'Content-Type:application/json' -d '
+{
+    "jsonrpc": "2.0",
+    "method": "user.create",
+    "params": {
+        "alias": "'$1'",
+        "passwd": "11111111111",
+        "usrgrps": [
+            {
+                "usrgrpid": "13"
+            }
+        ],
+        "user_medias": [
+            {
+                "mediatypeid": "4",
+                "sendto": "'$1'@myy.com",
+                "active": 0,
+                "severity": 63,
+                "period": "1-7,00:00-24:00"
+            },
+          {
+          "mediatypeid": "5",
+          "sendto": "'$1'",
+          "active": "0",
+          "severity": "63",
+          "period": "1-7,00:00-24:00"
+        }
+   
+        ]
+    },
+    "auth": "'${token}'",
+    "id": 1
+}' http://${zabbix_host}/zabbix/api_jsonrpc.php
+}
+user_create lis11i
+
+function user_delete(){
+curl -s -X POST -H 'Content-Type:application/json' -d '
+{
+    "jsonrpc": "2.0",
+    "method": "user.delete",
+    "params": [
+        "6"
+    ],
+    "auth": "'${token}'",
+    "id": 1
+}' http://${zabbix_host}/zabbix/api_jsonrpc.php
+}
+#user_delete
