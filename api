@@ -101,3 +101,102 @@ curl -s -X POST -H 'Content-Type:application/json' -d '
 }' http://${zabbix_host}/zabbix/api_jsonrpc.php
 }
 #user_delete
+
+function create_group(){
+curl -s -X POST -H 'Content-Type:application/json' -d '
+{
+    "jsonrpc": "2.0",
+    "method": "hostgroup.create",
+    "params": {
+        "name": "'$1'"
+    },
+    "auth": "'${token}'",
+    "id": 1
+}' http://${zabbix_host}/zabbix/api_jsonrpc.php
+}
+
+for i in $(grep 10.1 cmdb_ip|grep -v grep |awk '{print $4,$3,$2}' |sort |uniq |sed "s/[ ,']//g" |sed 's/\[/-/g' | sed 's/\]//g')
+do
+create_group 阿里云${i}
+done
+
+
+
+
+function host_get(){
+curl -s -X POST -H 'Content-Type:application/json' -d '
+{
+    "jsonrpc": "2.0",
+    "method": "host.get",
+    "params": {
+    "output": [ "hostid","host","name"],
+    "selectGroups": "extend",
+    "selectInterfaces": [ "ip" ]
+    },
+    "auth": "'${token}'",
+    "id": 1
+}' http://${zabbix_host}/zabbix/api_jsonrpc.php
+}
+#host_get |jq . >> hosts
+
+function hostgroup_getall(){
+curl -s -X POST -H 'Content-Type:application/json' -d '
+{
+    "jsonrpc": "2.0",
+    "method": "hostgroup.get",
+    "params": {
+    "output": "extend"
+    },
+    "auth": "'${token}'",
+    "id": 1
+}' http://${zabbix_host}/zabbix/api_jsonrpc.php
+}
+
+#hostgroup_getall |jq . >> groups
+#exit
+
+function hostgroup_massadd(){
+curl -s -X POST -H 'Content-Type:application/json' -d '
+{
+    "jsonrpc": "2.0",
+    "method": "hostgroup.massadd",
+    "params": {
+        "groups": [
+            {
+                "groupid": "'$1'"
+            }
+        ],
+        "hosts": [
+            {
+               "hostid": "'$2'"
+            }
+        ]
+    },
+    "auth": "'${token}'",
+    "id": 1
+}' http://${zabbix_host}/zabbix/api_jsonrpc.php
+}
+#hostgroup_massadd
+
+function shidc(){
+#for ip in $( grep  "ip" hosts |awk '{print $2}' |sed 's/\"//g' |grep 172.16 |head -n 20)
+for ip in $( grep  "ip" hosts |awk '{print $2}' |sed 's/\"//g' |grep 10.16.1.9)
+do
+echo ${ip}
+if grep -E "${ip}[ ]*" cmdb_ip |grep "'"
+then
+echo $ip
+#group=`grep "$ip " ip |grep "'" |awk '{print $4,$3,$2}' |sort |uniq |sed "s/[ ']//g" |sed 's/\[/_/g' | sed 's/\]//g'`
+group_name=$(grep -E "${ip}[ ]*" cmdb_ip|grep -v grep |awk '{print $4,$3,$2}' |sort |uniq |sed "s/[ ,']//g" |sed 's/\[/-/g' | sed 's/\]//g')
+# grep -B 1 "金融云${group_name}" groups
+groupid=$(grep -B 1 "金融云${group_name}" groups |grep  "groupid" |awk -F\" '{print $4}')
+hostid=$(grep -B 13 -E   "ip\": \"${ip}" hosts |grep "hostid" |awk -F\" '{print $4}'|head -n 1)
+echo ${groupid}
+echo ${hostid}
+hostgroup_massadd $groupid $hostid
+echo ""
+fi
+done
+}
+shidc
+
